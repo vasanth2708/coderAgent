@@ -240,11 +240,26 @@ Logs are written to `agent-v1/agent.log`. Set log level in `agent-v1/mcps/logger
 - Context window: 50,000 characters (auto-truncated)
 - Conversation history: Last 10 items
 
-## License
+## Future Development
 
-[Add your license here]
+The following improvements are planned for future versions:
 
-## Contributing
+### Enhanced Command Execution
+- **Improved run command handler**: More robust command parsing and execution with better error handling, support for complex command pipelines, and improved timeout management
+- **Command history and replay**: Track executed commands and allow replaying previous commands
+- **Interactive command execution**: Support for commands that require user input or interactive sessions
 
-[Add contribution guidelines here]
+### Code Understanding & RAG
+- **RAG (Retrieval-Augmented Generation) for code**: Implement semantic code search and retrieval to improve code understanding and context awareness. This was intentionally omitted from the initial version to keep complexity manageable, but would significantly enhance the agent's ability to find and understand relevant code patterns
+- **Code embedding and similarity search**: Better semantic matching of code patterns and functions
+- **Cross-file dependency analysis**: Understand relationships between files and modules
+
+### Additional Enhancements
+- **Multi-language support**: Extend beyond Python to support JavaScript, TypeScript, Go, Rust, and other languages
+- **Advanced refactoring**: Support for large-scale refactorings across multiple files with dependency tracking
+- **Test generation**: Automatically generate unit tests based on code analysis
+- **Code quality metrics**: Integration with linters, formatters, and code quality tools
+- **Version control integration**: Better integration with Git for change tracking and rollback
+- **Streaming responses**: Real-time streaming of LLM responses for better user experience
+
 
