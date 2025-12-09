@@ -14,7 +14,6 @@ def get_logger() -> logging.Logger:
         _logger = logging.getLogger("coder_agent")
         _logger.setLevel(logging.DEBUG)
         
-        # File handler for detailed logs
         file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter(
@@ -24,7 +23,6 @@ def get_logger() -> logging.Logger:
         file_handler.setFormatter(file_formatter)
         _logger.addHandler(file_handler)
         
-        # Console handler for warnings/errors only
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.WARNING)
         console_formatter = logging.Formatter("%(levelname)s: %(message)s")

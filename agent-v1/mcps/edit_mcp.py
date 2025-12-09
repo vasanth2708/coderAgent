@@ -2,9 +2,9 @@ import json
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from mcps.execution_mcp import run_command
-from mcps.filesystem_mcp import list_python_files
-from mcps.llm_config import get_llm
-from mcps.logger_config import get_logger
+from mcps.filesystem_mcp import list_python_files, read_file
+from config.llm_config import get_llm
+from config.logger_config import get_logger
 from state import AgentState
 
 logger = get_logger()
@@ -28,15 +28,10 @@ async def plan_edits(state: AgentState, user_request: str, read_node_func=None) 
     
     logger.info(f"Editing {len(files_to_edit)} files: {files_to_edit}")
     
-    # Always read fresh from disk when planning edits to ensure we have latest code
-    # This prevents using stale session context after previous edits
-    from mcps.filesystem_mcp import read_file
     file_contents = []
     for f in files_to_edit:
         try:
-            # Read fresh from disk to ensure we have the latest code
             fresh_content = read_file(f)
-            # Update session context with fresh content
             state.session_context.setdefault("file_contents", {})[f] = fresh_content
             lines = fresh_content.splitlines()
             numbered_lines = "\n".join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
@@ -44,7 +39,6 @@ async def plan_edits(state: AgentState, user_request: str, read_node_func=None) 
             logger.debug(f"Read fresh content for {f} ({len(fresh_content)} chars)")
         except Exception as e:
             logger.warning(f"Could not read {f} from disk, using session cache: {e}")
-            # Fallback to session cache if disk read fails
             if f in session_files:
                 lines = session_files[f].splitlines()
                 numbered_lines = "\n".join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
@@ -56,7 +50,6 @@ async def plan_edits(state: AgentState, user_request: str, read_node_func=None) 
         if test_result["exit_code"] != 0:
             test_context = f"\n\nTest failures:\n{test_result['stdout']}\n{test_result['stderr']}\n"
     
-    # Check user preferences for comments and docstrings
     preferences = state.memory.get("preferences", {})
     comment_instruction = ""
     if preferences.get("write_comments", False):

@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 import ray
 
-from mcps.logger_config import get_logger
+from config.logger_config import get_logger
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SAMPLE_PROJECT_DIR = BASE_DIR / "../sampleProject"
@@ -15,7 +15,6 @@ logger = get_logger()
 
 @ray.remote
 def _run_command(command: list[str]) -> Dict[str, str]:
-    # Run pytest with verbose output to capture all test results
     proc = subprocess.Popen(
         command,
         cwd=SAMPLE_PROJECT_DIR,

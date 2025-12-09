@@ -1,5 +1,10 @@
 import asyncio
+import json
+import logging
 import os
+import sys
+import time
+from io import StringIO
 from pathlib import Path
 
 import ray
@@ -9,8 +14,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from graph import build_graph
 from mcps.execution_mcp import run_command
 from mcps.filesystem_mcp import apply_line_edits, cache_file, clear_file_cache
-from mcps.llm_config import initialize_llm
-from mcps.logger_config import get_logger
+from config.llm_config import initialize_llm
+from config.logger_config import get_logger
 from mcps.memory_mcp import compute_code_hash, load_memory, save_memory
 from state import AgentState
 
@@ -19,7 +24,6 @@ logger = get_logger()
 BASE_DIR = Path(__file__).resolve().parent
 SAMPLE_PROJECT_DIR = BASE_DIR / "../sampleProject"
 
-# Load .env file from agent-v1 directory or parent directory
 env_file = BASE_DIR / ".env"
 if not env_file.exists():
     env_file = BASE_DIR.parent / ".env"
@@ -29,31 +33,22 @@ if env_file.exists():
 else:
     load_dotenv()  # Try default .env in current directory
 
-# Suppress Ray metrics exporter errors
 os.environ.setdefault("RAY_DISABLE_IMPORT_WARNING", "1")
 os.environ.setdefault("RAY_IGNORE_UNHANDLED_ERRORS", "1")
 os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
 os.environ.setdefault("RAY_USAGE_STATS_ENABLED", "0")
 os.environ.setdefault("RAY_ENABLE_WINDOWS_OR_OSX_CLUSTER", "0")
 
-# Suppress Ray logging to stderr
-import logging
-import sys
-from io import StringIO
-
 ray_logger = logging.getLogger("ray")
 ray_logger.setLevel(logging.CRITICAL)
 
-# Filter stderr to remove Ray metrics exporter errors
 class RayErrorFilter:
     def __init__(self, original_stderr):
         self.original_stderr = original_stderr
     
     def write(self, text):
-        # Filter out Ray metrics exporter errors and related messages
         text_lower = text.lower()
         
-        # Check for Ray/metrics/exporter related errors
         ray_error_keywords = [
             "failed to establish connection to the metrics exporter",
             "core_worker_process.cc",
@@ -71,9 +66,7 @@ class RayErrorFilter:
             "core_worker"
         ]
         
-        # Suppress if it contains any error keywords AND is related to Ray/metrics
         if any(keyword in text_lower for keyword in ray_error_keywords):
-            # Additional check: must be error/warning level or contain Ray/metrics context
             if any(indicator in text_lower for indicator in ["e ", "error", "warning", "ray", "metrics", "exporter", "rpc"]):
                 return  # Suppress this message
         
@@ -102,7 +95,6 @@ class RayErrorFilter:
         """File-like interface method"""
         return self.original_stderr.seekable()
 
-# Install stderr filter before Ray initialization
 _original_stderr = sys.stderr
 sys.stderr = RayErrorFilter(_original_stderr)
 
@@ -160,6 +152,21 @@ def apply_pending_edits(state: AgentState) -> tuple[bool, str]:
         state.pending_edits = {}
         return False, ""
     
+    backups = {}
+    files_to_edit = []
+    for edit_item in edits_data:
+        if isinstance(edit_item, dict) and "file" in edit_item:
+            filepath = edit_item["file"]
+            if filepath not in backups:
+                try:
+                    backup_path = SAMPLE_PROJECT_DIR / filepath
+                    if backup_path.exists():
+                        backups[filepath] = backup_path.read_text(encoding="utf-8")
+                        files_to_edit.append(filepath)
+                        logger.debug(f"Saved backup for {filepath}")
+                except Exception as e:
+                    logger.warning(f"Could not save backup for {filepath}: {e}")
+    
     results = []
     for edit_item in edits_data:
         if not isinstance(edit_item, dict) or "file" not in edit_item:
@@ -176,11 +183,25 @@ def apply_pending_edits(state: AgentState) -> tuple[bool, str]:
         results.append(message)
         
         if success and final_content is not None:
-            # Update session context with fresh content from disk
             state.session_context.setdefault("file_contents", {})[filepath] = final_content
-            # Also update the file cache to ensure consistency
             cache_file(filepath, final_content)
             logger.debug(f"Updated session context and cache for {filepath}")
+    
+    if backups:
+        edit_history_entry = {
+            "timestamp": time.time(),
+            "files": list(backups.keys()),
+            "backups": backups,
+            "edits_applied": edits_data,
+            "description": f"Applied {len(edits_data)} edit(s) to {len(backups)} file(s)"
+        }
+        state.edit_history.append(edit_history_entry)
+        if len(state.edit_history) > 10:
+            state.edit_history = state.edit_history[-10:]
+        logger.info(f"Recorded edit history entry (total: {len(state.edit_history)})")
+    
+    changes_json = json.dumps(edits_data, indent=2)
+    print(f"Changes JSON:\n{changes_json}\n")
     
     result_message = "Edits applied:\n" + "\n".join(f"  • {r}" for r in results)
     state.messages.append(AIMessage(content=result_message))
@@ -222,16 +243,34 @@ async def auto_fix_loop(app, state: AgentState, test_result: dict) -> AgentState
     print("Agent> ⚠ Tests failed. Entering auto-fix loop...\n")
     state.messages.append(AIMessage(content=f"⚠ Tests failed after edits:\n{test_result['stdout']}\n{test_result['stderr']}\n\nEntering auto-fix loop..."))
     
+    initial_retry_count = state.working_memory.get("retry_count", 0)
+    
     for fix_attempt in range(max_fix_attempts):
+        current_retry = state.working_memory.get("retry_count", 0)
+        if current_retry > max_fix_attempts * 2:  # Safety check
+            logger.warning(f"Excessive retries detected ({current_retry}), breaking loop")
+            state.messages.append(AIMessage(content="⚠ Too many retry attempts. Please review the code manually."))
+            break
         print(f"[AUTO-FIX] Attempt {fix_attempt + 1}/{max_fix_attempts}")
         refresh_file_contents(state)
         
-        state.messages.append(HumanMessage(content=f"Fix the failing tests. Test errors:\n{test_result['stdout'][:1000]}\n{test_result['stderr'][:500]}"))
+        previous_feedback = [f for f in state.working_memory.get("feedback_history", []) 
+                            if f.get("type") == "command_execution" and not f.get("success", True)]
+        feedback_context = ""
+        if previous_feedback:
+            feedback_context = f"\n\nPrevious fix attempts: {len(previous_feedback)} failed attempts. Please try a different approach."
+        
+        state.messages.append(HumanMessage(content=f"Fix the failing tests. Test errors:\n{test_result['stdout'][:1000]}\n{test_result['stderr'][:500]}{feedback_context}"))
         result = await app.ainvoke(state)
         state = _preserve_state(state, result)
         
         if not state.pending_edits:
             logger.info("No fixes generated, breaking loop")
+            state.working_memory["feedback_history"].append({
+                "type": "no_fixes_generated",
+                "attempt": fix_attempt + 1,
+                "timestamp": time.time()
+            })
             break
         
         print(f"→ Applying fixes (attempt {fix_attempt + 1})...")
@@ -301,7 +340,6 @@ async def main():
     check_environment()
     initialize_llm()
     
-    # Clear file cache on startup to ensure fresh reads
     clear_file_cache()
     logger.info("File cache cleared - starting fresh session")
     

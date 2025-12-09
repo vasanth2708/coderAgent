@@ -4,7 +4,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from mcps.logger_config import get_logger
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from config.llm_config import get_llm
+from config.logger_config import get_logger
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEMORY_FILE = BASE_DIR / ".coder_agent_memory.json"
@@ -96,14 +99,10 @@ def cache_response(mem: Dict[str, Any], code_hash: str, query: str, response: st
 
 def update_preferences_from_text(mem: Dict[str, Any], text: str) -> bool:
     """Dynamically extract preferences from user text using LLM"""
-    from langchain_core.messages import HumanMessage, SystemMessage
-    from mcps.llm_config import get_llm
-    
     lower = text.lower()
     prefs = mem.setdefault("preferences", {})
     
     
-    # Use LLM to dynamically extract preferences from natural language
     sys_msg = SystemMessage(content=(
         "Extract coding preferences from the user's text. Return ONLY a JSON object with boolean values.\n"
         "Possible preferences:\n"
@@ -119,7 +118,6 @@ def update_preferences_from_text(mem: Dict[str, Any], text: str) -> bool:
         msg = llm.invoke([sys_msg, HumanMessage(content=text)])
         
         response = msg.content.strip()
-        # Extract JSON from response (handle markdown code blocks)
         if "```json" in response:
             response = response.split("```json")[1].split("```")[0].strip()
         elif "```" in response:

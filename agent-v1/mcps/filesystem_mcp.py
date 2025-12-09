@@ -1,9 +1,10 @@
 import os
 import time
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from mcps.logger_config import get_logger
+from config.logger_config import get_logger
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SAMPLE_PROJECT_DIR = BASE_DIR / "../sampleProject"
@@ -171,7 +172,6 @@ def apply_line_edits(filepath: str, edits: List[Dict[str, Any]]) -> Tuple[bool, 
             logger.debug(f"Expected: '{old_stripped[:80]}'")
             logger.debug(f"New: '{new_code[:80]}'")
             
-            # More flexible matching: normalize whitespace, handle partial matches
             def normalize_code(code):
                 """Normalize code for comparison"""
                 return ' '.join(code.split())
@@ -192,9 +192,7 @@ def apply_line_edits(filepath: str, edits: List[Dict[str, Any]]) -> Tuple[bool, 
             elif old_stripped in current_line or current_stripped in old_stripped:
                 match_found = True
                 logger.debug("Match: Substring (original)")
-            # Try matching just the significant parts (ignore comments, extra whitespace)
             elif old_normalized and len(old_normalized) > 10:
-                # If old code is substantial, check if key parts match
                 old_keywords = [w for w in old_normalized.split() if len(w) > 2]
                 current_keywords = [w for w in current_normalized.split() if len(w) > 2]
                 if old_keywords and all(kw in current_normalized for kw in old_keywords[:3]):
@@ -228,7 +226,6 @@ def apply_line_edits(filepath: str, edits: List[Dict[str, Any]]) -> Tuple[bool, 
         return True, message, final_content
         
     except Exception as e:
-        import traceback
         error_detail = traceback.format_exc()
         logger.error(f"Error: {error_detail}")
         return False, f"Error applying edits to {filepath}: {str(e)}", None

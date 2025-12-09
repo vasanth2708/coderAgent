@@ -1,14 +1,10 @@
-"""
-Test suite for Task Manager API
-BUG: Incomplete test coverage - missing tests for error cases and edge cases
-"""
+"""Test suite for Task Manager API."""
 import pytest
 import json
 import os
 import sys
 from flask import Flask
 
-# Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from main import app
@@ -41,7 +37,6 @@ def test_get_tasks(client):
 
 def test_get_task_by_id(client):
     """Test getting a single task"""
-    # First create a task to ensure we have one to retrieve
     task_data = {
         "title": "Test Task for Get",
         "description": "Test description",
@@ -81,7 +76,6 @@ def test_update_task(client, sample_task):
         "title": "Updated Task Title",
         "status": "completed"
     }
-    # First create a task to ensure we have one to update
     create_response = client.post('/api/tasks',
                                  data=json.dumps(sample_task),
                                  content_type='application/json')
@@ -91,16 +85,7 @@ def test_update_task(client, sample_task):
                          data=json.dumps(update_data),
                          content_type='application/json')
     assert response.status_code == 200
-    data = json.loads(response.data)
+    data = json(response.data)
     assert data['title'] == "Updated Task Title"
     assert data['status'] == "completed"
-
-# BUG: Missing tests for:
-# - Testing task deletion
-# - Testing status update endpoint
-# - Testing filtering by status
-# - Testing filtering by user_id
-# - Testing invalid status values
-# - Testing concurrent updates
-# - Testing edge cases (empty strings, None values, etc.)
 

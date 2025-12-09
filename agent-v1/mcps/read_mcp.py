@@ -2,9 +2,9 @@ import time
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from mcps.execution_mcp import read_files_parallel
-from mcps.filesystem_mcp import cache_file, get_cached_file
-from mcps.llm_config import get_llm
-from mcps.logger_config import get_logger
+from mcps.filesystem_mcp import cache_file, get_cached_file, read_file
+from config.llm_config import get_llm
+from config.logger_config import get_logger
 from mcps.memory_mcp import cache_response, compute_code_hash, get_cached_response
 from state import AgentState
 
@@ -77,17 +77,12 @@ async def retrieve_context(state: AgentState, user_question: str) -> tuple:
     logger.info(f"Total content: {total_size} characters from {len(content)} files")
     logger.info(f"Session now has {len(state.session_context['read_files'])} files in context")
     
-    # Always compute hash from fresh disk reads to ensure accuracy
-    # This prevents stale cache from causing incorrect hash matches
-    from mcps.filesystem_mcp import read_file
     current_file_contents = {}
     for filepath in state.target_files:
         try:
-            # Always read fresh from disk for hash computation
             current_file_contents[filepath] = read_file(filepath)
         except Exception as e:
             logger.warning(f"Could not read {filepath} for hash computation: {e}")
-            # Only fallback to cached if disk read fails
             if filepath in file_contents_map:
                 current_file_contents[filepath] = file_contents_map[filepath]
                 logger.warning(f"Using cached content for hash computation due to read error")
@@ -117,16 +112,34 @@ async def retrieve_context(state: AgentState, user_question: str) -> tuple:
         f"{history_context}"
     )
     
+    MAX_CONTEXT_LENGTH = 50000
+    def truncate_context(content: str, max_length: int = MAX_CONTEXT_LENGTH) -> str:
+        """Truncate content if it exceeds max_length, keeping the beginning"""
+        if len(content) <= max_length:
+            return content
+        logger.warning(f"Context truncated from {len(content)} to {max_length} characters")
+        return content[:max_length] + "\n... [truncated]"
+    
+    full_content = f"User question: {user_question}\n\nCode files:\n\n" + "\n\n".join(content)
+    truncated_content = truncate_context(full_content)
+    
+    if len(truncated_content) < len(full_content):
+        logger.warning(f"Content truncated from {len(full_content)} to {len(truncated_content)} characters")
+    
     logger.debug("Calling LLM (arbitration agent) to answer question")
     llm = get_llm()
     msg = await llm.ainvoke([
-        SystemMessage(content=arbitration_prompt),
-        HumanMessage(content=f"User question: {user_question}\n\nCode files:\n\n" + "\n\n".join(content))
+        SystemMessage(content=truncate_context(arbitration_prompt)),
+        HumanMessage(content=truncated_content)
     ])
+    
+    response_content = msg.content
+    if len(response_content) > 10000:  # Limit cached responses
+        response_content = response_content[:10000] + "... [truncated]"
     arbitration_time = time.time() - arbitration_start
     logger.info(f"Arbitration completed in {arbitration_time:.3f}s, response: {len(msg.content)} characters")
     
-    cache_response(state.memory, code_hash, user_question, msg.content)
+    cache_response(state.memory, code_hash, user_question, response_content)
     
     return msg.content, file_contents_map
 
