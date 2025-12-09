@@ -1,11 +1,12 @@
 import asyncio
 import json
+import re
 import time
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from mcps.edit_mcp import plan_edits
-from mcps.execution_mcp import run_pytest
+from mcps.execution_mcp import run_command
 from mcps.filesystem_mcp import list_python_files
 from mcps.intent_mcp import classify_intent
 from mcps.llm_config import get_llm
@@ -219,30 +220,90 @@ async def edit_node(state: AgentState) -> AgentState:
     return state
 
 
-async def run_tests_node(state: AgentState) -> AgentState:
-    logger.debug("run_tests_node()")
+async def run_command_node(state: AgentState) -> AgentState:
+    logger.debug("run_command_node()")
     node_start_time = time.time()
-    result = run_pytest()
-    input_summary = {}
+    user_text = last_user_text(state)
     
-    if result["exit_code"] == 0:
-        print(f"→ All tests passed")
-        state.messages.append(AIMessage(content="✅ All tests passed."))
+    # Parse command from user text if selected_command is not set
+    if state.selected_command:
+        command = state.selected_command
     else:
-        print(f"→ Tests failed")
-        state.messages.append(
-            AIMessage(content=f"❌ Tests failed:\n\n{result['stdout']}\n{result['stderr']}")
-        )
-    state.done = True
+        # Try to extract command from user text
+        user_lower = user_text.lower() if user_text else ""
+        command = ["pytest"]  # default
+        
+        # Parse common patterns
+        if "run test" in user_lower or "test" in user_lower:
+            command = ["pytest"]
+        elif "run main" in user_lower or "run main.py" in user_lower or "run main file" in user_lower:
+            command = ["python", "main.py"]
+        elif "run python" in user_lower:
+            # Extract filename after "run python" or "python"
+            parts = user_text.split()
+            python_idx = -1
+            for i, part in enumerate(parts):
+                if part.lower() in ["python", "python3"]:
+                    python_idx = i
+                    break
+            if python_idx >= 0 and python_idx + 1 < len(parts):
+                filename = parts[python_idx + 1]
+                command = ["python", filename]
+            else:
+                # Try to find .py file in the text
+                py_files = re.findall(r'\b\w+\.py\b', user_text)
+                if py_files:
+                    command = ["python", py_files[0]]
+        elif ".py" in user_text:
+            # Extract .py filename
+            py_files = re.findall(r'\b\w+\.py\b', user_text)
+            if py_files:
+                command = ["python", py_files[0]]
+        else:
+            # Use LLM to parse the command
+            sys = SystemMessage(
+                content=(
+                    "Parse the user's command request and return a JSON array with the command to run.\n"
+                    "Examples:\n"
+                    "- 'run pytest' -> [\"pytest\"]\n"
+                    "- 'run main.py' -> [\"python\", \"main.py\"]\n"
+                    "- 'run python app.py' -> [\"python\", \"app.py\"]\n"
+                    "- 'run curl http://example.com' -> [\"curl\", \"http://example.com\"]\n"
+                    "Return only the JSON array, no other text."
+                )
+            )
+            llm = get_llm()
+            msg = await llm.ainvoke([sys, HumanMessage(content=user_text)])
+            try:
+                content = msg.content.strip()
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    parts = content.split("```")
+                    if len(parts) >= 3:
+                        content = parts[1].strip()
+                        if content.startswith("json"):
+                            content = content[4:].strip()
+                parsed = json.loads(content)
+                if isinstance(parsed, list):
+                    command = parsed
+            except Exception as e:
+                logger.warning(f"Failed to parse command from LLM: {e}, using default pytest")
     
+    input_summary = {
+        "command": command,
+        "selected_command": state.selected_command is not None,
+        "user_text": user_text[:100] if user_text else ""
+    }
+    result = run_command(command)
+    state.messages.append(AIMessage(content=result['stdout']))
+    state.done = True
     duration = time.time() - node_start_time
     output_summary = {
-        "exit_code": result["exit_code"],
-        "tests_passed": result["exit_code"] == 0,
-        "stdout_length": len(result.get("stdout", "")),
-        "stderr_length": len(result.get("stderr", ""))
+        "command": command,
+        "result": result
     }
-    log_node_execution(state.memory, "run_tests", input_summary, output_summary, duration)
+    log_node_execution(state.memory, "run_command", input_summary, output_summary, duration)
     return state
 
 
@@ -254,7 +315,7 @@ def build_graph():
     graph.add_node("plan_read", plan_read_node)
     graph.add_node("read", read_node)
     graph.add_node("edit", edit_node)
-    graph.add_node("run_tests", run_tests_node)
+    graph.add_node("run_command", run_command_node)
     
     graph.add_edge(START, "route")
     
@@ -265,7 +326,7 @@ def build_graph():
             "profile": "profile",
             "read": "plan_read",
             "edit": "edit",
-            "run_tests": "run_tests",
+            "run_command": "run_command",
         },
     )
     
@@ -273,7 +334,7 @@ def build_graph():
     graph.add_edge("profile", END)
     graph.add_edge("read", END)
     graph.add_edge("edit", END)
-    graph.add_edge("run_tests", END)
+    graph.add_edge("run_command", END)
     
     return graph.compile()
 

@@ -1,7 +1,7 @@
 import json
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from mcps.execution_mcp import run_pytest
+from mcps.execution_mcp import run_command
 from mcps.filesystem_mcp import list_python_files
 from mcps.llm_config import get_llm
 from mcps.logger_config import get_logger
@@ -52,7 +52,7 @@ async def plan_edits(state: AgentState, user_request: str, read_node_func=None) 
     
     test_context = ""
     if "test" in user_request.lower() or "fix" in user_request.lower():
-        test_result = run_pytest()
+        test_result = run_command(["pytest"])
         if test_result["exit_code"] != 0:
             test_context = f"\n\nTest failures:\n{test_result['stdout']}\n{test_result['stderr']}\n"
     

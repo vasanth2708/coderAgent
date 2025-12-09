@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
 
 from graph import build_graph
-from mcps.execution_mcp import run_pytest
+from mcps.execution_mcp import run_command
 from mcps.filesystem_mcp import apply_line_edits, cache_file, clear_file_cache
 from mcps.llm_config import initialize_llm
 from mcps.logger_config import get_logger
@@ -256,7 +256,7 @@ async def auto_fix_loop(app, state: AgentState, test_result: dict) -> AgentState
             logger.info("No edits were successfully applied, breaking loop")
             break
         
-        test_result = run_pytest()
+        test_result = run_command(["pytest"])
         if test_result["exit_code"] == 0:
             print(f"Agent> ✅ Tests passed after auto-fix (attempt {fix_attempt + 1})!\n")
             state.messages.append(AIMessage(content=f"✅ Tests passed after auto-fix (attempt {fix_attempt + 1})!"))
@@ -321,7 +321,7 @@ async def main():
                 continue
             
             print("→ Running tests after edits...")
-            test_result = run_pytest()
+            test_result = run_command(["pytest"])
             if test_result["exit_code"] == 0:
                 print("Agent> ✅ All tests passed after edits!\n")
                 state.messages.append(AIMessage(content="✅ All tests passed after edits!"))

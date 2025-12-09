@@ -21,7 +21,7 @@ def log_node_execution(mem: Dict[str, Any], node_name: str, input_summary: Dict[
     if len(node_log) > 1000:
         node_log[:] = node_log[-1000:]
     
-    if len(node_log) % 10 == 0 or node_name in ["edit", "read", "run_tests"]:
+    if len(node_log) % 10 == 0 or node_name in ["edit", "read", "run_command"]:
         save_memory(mem)
         print(f"  [NODE_LOG] Logged {node_name} execution (total: {len(node_log)} entries)")
 
