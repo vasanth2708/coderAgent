@@ -10,7 +10,6 @@ from nodes.undo import undo_node
 from nodes.profile import profile_node
 from nodes.approve import approve_node
 from nodes.apply import apply_node
-from nodes.test import test_node
 from nodes.evaluator import evaluator_node
 
 
@@ -34,12 +33,12 @@ def route_after_edit(state: AgentState) -> str:
 
 
 def route_after_apply(state: AgentState) -> str:
-    """Route after apply node - always go to test"""
-    return "test"
+    """Route after apply node - go to run node for testing"""
+    return "run"
 
 
-def route_after_test(state: AgentState) -> str:
-    """Route after test node - retry edit if tests failed and retries remain"""
+def route_after_run_tests(state: AgentState) -> str:
+    """Route after run node (when running tests) - retry edit if tests failed and retries remain"""
     if state.done:
         # Tests passed or max retries reached
         return END
@@ -59,7 +58,6 @@ def build_graph():
     graph.add_node("edit", edit_node)
     graph.add_node("approve", approve_node)
     graph.add_node("apply", apply_node)
-    graph.add_node("test", test_node)
     graph.add_node("run", run_node)
     graph.add_node("undo", undo_node)
     graph.add_node("profile", profile_node)
@@ -69,16 +67,33 @@ def build_graph():
     graph.set_entry_point("intent")
     graph.add_conditional_edges("intent", route_intent)
     
-    # Edit flow: edit → approve → (wait for user) → apply → test → (retry if needed)
+    # Edit flow: edit → approve → (wait for user) → apply → run (tests) → (retry if needed)
     graph.add_conditional_edges("edit", route_after_edit)
     graph.add_edge("approve", END)  # Pause for user approval
     graph.add_conditional_edges("apply", route_after_apply)
-    graph.add_conditional_edges("test", route_after_test)
     
-    # Other nodes go to END, but also trigger evaluator in parallel
+    # Run node needs conditional routing:
+    # - If it's running tests (after apply), use route_after_run_tests
+    # - Otherwise, go to evaluator
+    # We'll handle this by checking state.done in a new routing function
+    def route_run(state: AgentState) -> str:
+        """Route from run node - check if it was a test run or normal command"""
+        if hasattr(state, '_run_tests_after_apply') and not state.done:
+            # Tests failed, need to retry
+            return "intent"
+        elif state.done:
+            # Normal command or tests passed
+            return "evaluator"
+        else:
+            # Shouldn't happen, but default to evaluator
+            return "evaluator"
+    
+    graph.add_conditional_edges("run", route_run)
+    
+    # Other nodes go to evaluator before END
     # Note: In LangGraph, we can't truly run in parallel, but we can chain evaluator before END
     # The evaluator is designed to be fast and non-blocking
-    for node in ["read", "run", "undo", "profile"]:
+    for node in ["read", "undo", "profile"]:
         graph.add_edge(node, "evaluator")
     
     # Evaluator always goes to END

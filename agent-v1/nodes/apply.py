@@ -82,7 +82,8 @@ async def apply_node(state: AgentState) -> AgentState:
     
     state.messages.append(AIMessage(content=result_msg))
     state.pending_edits = {}
-    state.done = False  # Continue to test node
+    state.done = False  # Continue to run node for testing
+    state._run_tests_after_apply = True  # Signal run_node to execute tests
     
     return state
 

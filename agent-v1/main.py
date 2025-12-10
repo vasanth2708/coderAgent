@@ -73,13 +73,13 @@ async def main():
             
             # Continue from apply node
             from nodes.apply import apply_node
-            from nodes.test import test_node
+            from nodes.run import run_node
             
             print("\n→ User approved. Applying edits...")
             state = await apply_node(state)
             
-            # Run tests
-            state = await test_node(state)
+            # Run tests (run_node will detect _run_tests_after_apply flag)
+            state = await run_node(state)
             
             # If tests failed and retry needed, continue the loop
             while not state.done and state.retry_count <= state.max_retries:
@@ -100,7 +100,7 @@ async def main():
                 # If edits were generated and approved (in retry), apply and test
                 if state.pending_edits and not state.awaiting_approval:
                     state = await apply_node(state)
-                    state = await test_node(state)
+                    state = await run_node(state)
             
             continue
         
