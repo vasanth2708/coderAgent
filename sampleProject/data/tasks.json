@@ -943,5 +943,275 @@
     "user_id": 1,
     "due_date": "2024-02-20",
     "created_at": "2025-12-09T11:45:42.952252"
+  },
+  {
+    "id": 106,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:14:31.027278"
+  },
+  {
+    "id": 107,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:14:31.029147"
+  },
+  {
+    "id": 108,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:14:31.031072"
+  },
+  {
+    "id": 109,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:16:16.128270"
+  },
+  {
+    "id": 110,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:16:16.130060"
+  },
+  {
+    "id": 111,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:16:16.135058"
+  },
+  {
+    "id": 112,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:16:36.692861"
+  },
+  {
+    "id": 113,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:16:36.694473"
+  },
+  {
+    "id": 114,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:16:36.695944"
+  },
+  {
+    "id": 115,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:26:11.160410"
+  },
+  {
+    "id": 116,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:26:11.162230"
+  },
+  {
+    "id": 117,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:26:11.163870"
+  },
+  {
+    "id": 118,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:27:35.051230"
+  },
+  {
+    "id": 119,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:27:35.053555"
+  },
+  {
+    "id": 120,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:27:35.055282"
+  },
+  {
+    "id": 121,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:33:06.976280"
+  },
+  {
+    "id": 122,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:33:06.978040"
+  },
+  {
+    "id": 123,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:33:06.979810"
+  },
+  {
+    "id": 124,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:35:27.880746"
+  },
+  {
+    "id": 125,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:35:27.882493"
+  },
+  {
+    "id": 126,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:35:27.883886"
+  },
+  {
+    "id": 127,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:37:10.517168"
+  },
+  {
+    "id": 128,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:37:10.518986"
+  },
+  {
+    "id": 129,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:37:10.520413"
+  },
+  {
+    "id": 130,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T22:47:01.901489"
+  },
+  {
+    "id": 131,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:47:01.903330"
+  },
+  {
+    "id": 132,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T22:47:01.904775"
+  },
+  {
+    "id": 133,
+    "title": "Test Task for Get",
+    "description": "Test description",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": null,
+    "created_at": "2025-12-09T23:02:55.500978"
+  },
+  {
+    "id": 134,
+    "title": "Test Task",
+    "description": "This is a test task",
+    "status": "pending",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T23:02:55.503775"
+  },
+  {
+    "id": 135,
+    "title": "Updated Task Title",
+    "description": "This is a test task",
+    "status": "completed",
+    "user_id": 1,
+    "due_date": "2024-02-20",
+    "created_at": "2025-12-09T23:02:55.505381"
   }
 ]

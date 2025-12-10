@@ -85,7 +85,7 @@ def test_update_task(client, sample_task):
                          data=json.dumps(update_data),
                          content_type='application/json')
     assert response.status_code == 200
-    data = json(response.data)
+    data = json.loads(response.data)
     assert data['title'] == "Updated Task Title"
     assert data['status'] == "completed"
 

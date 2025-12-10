@@ -50,11 +50,16 @@ source env/bin/activate  # On Windows: env\Scripts\activate
 pip install -r requirements.txt
 ```
 
-If `requirements.txt` doesn't exist, install manually:
+**Optional - For Filesystem MCP Server:**
+If you want to use the MCP filesystem server (recommended), ensure Node.js is installed:
 
 ```bash
-pip install langgraph langchain langchain-openai langchain-core pydantic ray python-dotenv
+# Check if Node.js is available
+node --version
+npx --version
 ```
+
+The agent will automatically use the MCP filesystem server if Node.js is available, or fall back to direct file operations otherwise.
 
 ### 4. Set Up Environment Variables
 
@@ -149,13 +154,16 @@ coderAgent/
 │   ├── main.py            # Entry point
 │   ├── graph.py           # LangGraph state machine
 │   ├── state.py           # Agent state definition
-│   ├── mcps/              # MCP modules (tool integrations)
-│   │   ├── filesystem_mcp.py
-│   │   ├── execution_mcp.py
-│   │   ├── edit_mcp.py
-│   │   ├── read_mcp.py
-│   │   ├── intent_mcp.py
-│   │   └── memory_mcp.py
+│   ├── mcps/              # Tool modules with MCP protocol integration
+│   │   ├── filesystem_mcp.py      # File operations (MCP-enabled)
+│   │   ├── execution_mcp.py       # Command execution (MCP-enabled)
+│   │   ├── mcp_client.py          # MCP client infrastructure
+│   │   ├── mcp_adapter.py         # MCP adapter layer
+│   │   ├── mcp_execution_server.py # Custom execution MCP server
+│   │   ├── edit_mcp.py            # Edit planning
+│   │   ├── read_mcp.py            # Context retrieval
+│   │   ├── intent_mcp.py          # Intent classification
+│   │   └── memory_mcp.py          # Memory management
 │   ├── ARCHITECTURE.md    # Architecture documentation
 │   └── .coder_agent_memory.json  # Persistent memory (auto-created)
 ├── sampleProject/         # Target codebase for agent
@@ -239,6 +247,47 @@ Logs are written to `agent-v1/agent.log`. Set log level in `agent-v1/mcps/logger
 - Command execution timeout: 30 seconds
 - Context window: 50,000 characters (auto-truncated)
 - Conversation history: Last 10 items
+
+## MCP (Model Context Protocol) Integration
+
+The agent now includes **MCP protocol integration** with tool discovery and execution via MCP servers. The implementation includes:
+
+### MCP Servers Integrated
+
+1. **Filesystem MCP Server** (`@modelcontextprotocol/server-filesystem`)
+   - Provides secure file operations (read, write, list)
+   - Uses the community Node.js-based filesystem server
+   - Automatically falls back to direct file operations if MCP server is unavailable
+
+2. **Execution MCP Server** (Custom Python implementation)
+   - Provides command execution capabilities
+   - Custom MCP server implemented in Python
+   - Located at `agent-v1/mcps/mcp_execution_server.py`
+
+### How It Works
+
+- **Tool Discovery**: On startup, the agent discovers available tools from registered MCP servers
+- **Automatic Fallback**: If MCP servers are unavailable, the agent falls back to direct tool implementations
+- **Protocol Communication**: Tools are called via JSON-RPC 2.0 protocol over stdio
+
+### Prerequisites for MCP
+
+**For Filesystem Server** (optional):
+- Node.js and `npx` must be installed
+- The filesystem server will be automatically started with access to the `sampleProject` directory
+
+**For Execution Server**:
+- No additional dependencies (pure Python)
+
+If Node.js is not available, the agent will use direct file operations instead of the MCP filesystem server, but the execution MCP server will still work.
+
+### MCP Architecture
+
+The MCP implementation includes:
+- `mcps/mcp_client.py`: MCP client infrastructure for connecting to servers
+- `mcps/mcp_adapter.py`: Adapter layer that routes tool calls through MCP protocol
+- `mcps/mcp_execution_server.py`: Custom execution MCP server
+- Updated tool modules that check for MCP availability and use it when possible
 
 ## Future Development
 
