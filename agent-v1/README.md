@@ -85,3 +85,41 @@ agent-v1/
 
 ## Testing
 Tested with sample Flask Task Manager API project.
+
+## Future Improvements
+
+### Performance Optimizations
+1. **Streaming Responses**: Stream LLM outputs for better UX
+2. **Parallel File Reading**: Read multiple files concurrently
+3. **Incremental Edits**: Apply edits as they're generated
+4. **Cache Warming**: Pre-load frequently accessed files
+
+### Enhanced Intelligence
+1. **Multi-File Edits**: Handle cross-file refactoring in single operation
+2. **Semantic Search**: Use embeddings for better file selection
+3. **Context Pruning**: Intelligently reduce context size for large files
+4. **Learning from Failures**: Track common error patterns and suggest fixes
+
+### Production Features
+1. **Git Integration**: Auto-commit successful fixes with descriptive messages
+2. **Rollback Safety**: Create git branches before applying edits
+3. **Diff Preview**: Show unified diff before approval
+4. **Test Coverage**: Track which tests cover which code sections
+
+### Scalability
+1. **Distributed MCP**: Run MCP servers on remote machines
+2. **Multi-Project**: Handle multiple projects simultaneously
+3. **Workspace Isolation**: Sandbox execution for security
+4. **Rate Limiting**: Prevent API abuse with token budgets
+
+### Developer Experience
+1. **IDE Integration**: VSCode/IntelliJ plugins
+2. **Web Interface**: Browser-based UI for remote access
+3. **Voice Commands**: Natural language voice input
+4. **Telemetry**: Track usage patterns and optimize workflows
+
+### Advanced Caching
+1. **Semantic Deduplication**: Use embeddings instead of word overlap
+2. **Partial Cache Hits**: Reuse parts of similar cached responses
+3. **Cache Preloading**: Predict and cache likely next queries
+4. **Distributed Cache**: Share cache across team members
