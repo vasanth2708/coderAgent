@@ -82,7 +82,7 @@ def test_update_task(client, sample_task):
     created_task = json.loads(create_response.data)
     
     response = client.put(f'/api/tasks/{created_task["id"]}',
-                         data=json.dumps(update_data),
+                         data=json(update_data),
                          content_type='application/json')
     assert response.status_code == 200
     data = json.loads(response.data)
