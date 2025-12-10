@@ -10,6 +10,14 @@ from typing import Any, Dict, List, Optional
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent.parent / "sampleProject"
 
+# Enable MCP debug logging
+MCP_DEBUG = True
+
+def mcp_log(msg: str):
+    """Log MCP operations"""
+    if MCP_DEBUG:
+        print(f"[MCP-CLIENT] {msg}")
+
 
 class MCPServer:
     """Represents a single MCP server connection"""
@@ -23,13 +31,16 @@ class MCPServer:
     async def start(self) -> bool:
         """Start the MCP server"""
         try:
+            mcp_log(f"Starting server '{self.name}' with command: {' '.join(self.command)}")
+            
             self.process = subprocess.Popen(
                 self.command,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=PROJECT_DIR
+                cwd=PROJECT_DIR,
+                bufsize=1  # Line buffered
             )
             
             # Give server time to start
@@ -47,6 +58,7 @@ class MCPServer:
                 }
             }
             
+            mcp_log(f"Sending initialize to {self.name}: {json.dumps(init_request)}")
             self.process.stdin.write(json.dumps(init_request) + "\n")
             self.process.stdin.flush()
             
@@ -56,23 +68,35 @@ class MCPServer:
                 timeout=5.0
             )
             
+            mcp_log(f"Received from {self.name}: {response.strip()[:200]}")
+            
             if response and response.strip():
                 try:
                     result = json.loads(response.strip())
                     if "result" in result:
+                        mcp_log(f"✓ Server {self.name} initialized successfully")
                         # Discover tools
                         await self.discover_tools()
                         return True
+                    elif "error" in result:
+                        mcp_log(f"✗ Server {self.name} returned error: {result['error']}")
                 except json.JSONDecodeError as e:
-                    print(f"Failed to parse init response from {self.name}: {e}")
-                    print(f"Response was: {response[:100]}")
+                    mcp_log(f"✗ Failed to parse init response from {self.name}: {e}")
+                    mcp_log(f"   Response was: {response[:100]}")
             
             return False
         except asyncio.TimeoutError:
-            print(f"Timeout waiting for {self.name} to initialize")
+            mcp_log(f"✗ Timeout waiting for {self.name} to initialize")
+            # Check stderr for errors
+            if self.process and self.process.stderr:
+                stderr = self.process.stderr.read()
+                if stderr:
+                    mcp_log(f"   stderr: {stderr[:200]}")
             return False
         except Exception as e:
-            print(f"Failed to start MCP server {self.name}: {e}")
+            mcp_log(f"✗ Failed to start MCP server {self.name}: {e}")
+            import traceback
+            mcp_log(f"   {traceback.format_exc()}")
             return False
     
     async def discover_tools(self):
@@ -85,6 +109,7 @@ class MCPServer:
                 "params": {}
             }
             
+            mcp_log(f"Discovering tools from {self.name}")
             self.process.stdin.write(json.dumps(tools_request) + "\n")
             self.process.stdin.flush()
             
@@ -93,18 +118,23 @@ class MCPServer:
                 timeout=5.0
             )
             
+            mcp_log(f"Tools response from {self.name}: {response.strip()[:200]}")
+            
             if response and response.strip():
                 try:
                     result = json.loads(response.strip())
                     if "result" in result and "tools" in result["result"]:
                         for tool in result["result"]["tools"]:
                             self.tools[tool["name"]] = tool
+                        mcp_log(f"✓ Discovered {len(self.tools)} tools from {self.name}: {list(self.tools.keys())}")
+                    elif "error" in result:
+                        mcp_log(f"✗ Error discovering tools from {self.name}: {result['error']}")
                 except json.JSONDecodeError as e:
-                    print(f"Failed to parse tools list from {self.name}: {e}")
+                    mcp_log(f"✗ Failed to parse tools list from {self.name}: {e}")
         except asyncio.TimeoutError:
-            print(f"Timeout discovering tools from {self.name}")
+            mcp_log(f"✗ Timeout discovering tools from {self.name}")
         except Exception as e:
-            print(f"Failed to discover tools from {self.name}: {e}")
+            mcp_log(f"✗ Failed to discover tools from {self.name}: {e}")
     
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         """Call a tool on this server"""
@@ -119,6 +149,7 @@ class MCPServer:
                 }
             }
             
+            mcp_log(f"Calling {tool_name} on {self.name} with args: {arguments}")
             self.process.stdin.write(json.dumps(request) + "\n")
             self.process.stdin.flush()
             
@@ -127,31 +158,37 @@ class MCPServer:
                 timeout=10.0
             )
             
+            mcp_log(f"Tool response from {self.name}: {response.strip()[:200]}")
+            
             if response and response.strip():
                 try:
                     result = json.loads(response.strip())
                     if "result" in result:
+                        mcp_log(f"✓ Tool {tool_name} succeeded")
                         return result["result"]
                     elif "error" in result:
-                        print(f"MCP error from {self.name}: {result['error']}")
+                        mcp_log(f"✗ MCP error from {self.name}: {result['error']}")
                         return None
                 except json.JSONDecodeError as e:
-                    print(f"Failed to parse tool response from {self.name}: {e}")
-                    print(f"Response was: {response[:200]}")
+                    mcp_log(f"✗ Failed to parse tool response from {self.name}: {e}")
+                    mcp_log(f"   Response was: {response[:200]}")
             
             return None
         except asyncio.TimeoutError:
-            print(f"Timeout calling tool {tool_name} on {self.name}")
+            mcp_log(f"✗ Timeout calling tool {tool_name} on {self.name}")
             return None
         except Exception as e:
-            print(f"Failed to call tool {tool_name}: {e}")
+            mcp_log(f"✗ Failed to call tool {tool_name}: {e}")
             return None
     
     def stop(self):
         """Stop the MCP server"""
         if self.process:
-            self.process.terminate()
-            self.process.wait(timeout=5)
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=5)
+            except Exception as e:
+                mcp_log(f"Note: Error stopping server {self.name}: {e}")
 
 
 class MCPClient:
@@ -206,33 +243,50 @@ async def initialize_mcp() -> MCPClient:
     
     _mcp_client = MCPClient()
     
-    # Try to add filesystem server (Node.js based)
-    # Note: This requires Node.js and npx to be installed
-    try:
-        # Check if npx is available
-        result = subprocess.run(["which", "npx"], capture_output=True)
-        if result.returncode == 0:
-            await _mcp_client.add_server(
-                "filesystem",
-                ["npx", "-y", "@modelcontextprotocol/server-filesystem", str(PROJECT_DIR)]
-            )
-        else:
-            print("Note: npx not found, skipping filesystem MCP server (using direct fallback)")
-    except Exception as e:
-        print(f"Note: Filesystem MCP server not available: {e}")
+    mcp_log("=" * 60)
+    mcp_log("Initializing MCP Servers")
+    mcp_log("=" * 60)
     
-    # Try to add execution server (Python based)
+    # Add Python-based filesystem server
+    try:
+        filesystem_server = Path(__file__).parent / "filesystem_server.py"
+        if filesystem_server.exists():
+            mcp_log(f"Adding filesystem server from {filesystem_server}")
+            success = await _mcp_client.add_server(
+                "filesystem",
+                [sys.executable, str(filesystem_server)]
+            )
+            if not success:
+                mcp_log("✗ Filesystem server failed to start")
+        else:
+            mcp_log(f"✗ Filesystem server not found at {filesystem_server}")
+    except Exception as e:
+        mcp_log(f"✗ Filesystem MCP server error: {e}")
+    
+    # Add Python-based execution server
     try:
         execution_server = Path(__file__).parent / "execution_server.py"
         if execution_server.exists():
-            await _mcp_client.add_server(
+            mcp_log(f"Adding execution server from {execution_server}")
+            success = await _mcp_client.add_server(
                 "execution",
                 [sys.executable, str(execution_server)]
             )
+            if not success:
+                mcp_log("✗ Execution server failed to start")
         else:
-            print(f"Note: Execution server not found at {execution_server}")
+            mcp_log(f"✗ Execution server not found at {execution_server}")
     except Exception as e:
-        print(f"Note: Execution MCP server not available: {e}")
+        mcp_log(f"✗ Execution MCP server error: {e}")
+    
+    mcp_log("=" * 60)
+    if len(_mcp_client.servers) > 0:
+        mcp_log(f"✓ MCP initialized with {len(_mcp_client.servers)} server(s)")
+        for name, server in _mcp_client.servers.items():
+            mcp_log(f"  • {name}: {len(server.tools)} tools")
+    else:
+        mcp_log("⚠ No MCP servers started - will use direct fallback")
+    mcp_log("=" * 60)
     
     return _mcp_client
 

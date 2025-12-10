@@ -3,10 +3,10 @@ Undo Node - Revert last edit
 """
 from langchain_core.messages import AIMessage
 from core.state import AgentState
-from tools.filesystem import restore_file
+from tools.mcp_adapter import mcp_adapter
 
 
-def undo_node(state: AgentState) -> AgentState:
+async def undo_node(state: AgentState) -> AgentState:
     """Undo last edit"""
     
     if not state.edit_history:
@@ -19,8 +19,8 @@ def undo_node(state: AgentState) -> AgentState:
     filepath = last_edit["file"]
     backup = last_edit["backup"]
     
-    # Restore
-    restore_file(filepath, backup)
+    # Restore via MCP
+    await mcp_adapter.restore_file(filepath, backup)
     state.memory.add_file(filepath, backup)
     
     state.messages.append(AIMessage(content=f"Reverted changes to {filepath}"))

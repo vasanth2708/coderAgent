@@ -98,12 +98,43 @@ class Memory:
         return None
     
     def cache_response(self, code_hash: str, query: str, response: str):
-        """Cache response"""
+        """
+        Cache response with similarity deduplication.
+        
+        If a very similar query exists for the same code hash, update it instead
+        of creating a duplicate entry.
+        """
         query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
         key = f"{code_hash}:{query_hash}"
-        self.persistent["cache"][key] = {
+        
+        # Check for similar existing queries (70% word overlap)
+        query_words = set(query.lower().split())
+        cache = self.persistent["cache"]
+        
+        for existing_key, existing_val in list(cache.items()):
+            # Only check entries with same code hash
+            if existing_key.startswith(code_hash):
+                existing_query = existing_val.get("query", "")
+                existing_words = set(existing_query.lower().split())
+                
+                # Calculate similarity
+                if query_words and existing_words:
+                    overlap = len(query_words & existing_words) / max(len(query_words), len(existing_words))
+                    
+                    if overlap > 0.7:  # 70% similarity
+                        # Update existing entry instead of creating duplicate
+                        cache[existing_key] = {
+                            "query": query,  # Update with latest query
+                            "response": response[:5000],
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        self.save()
+                        return
+        
+        # No similar entry found, create new one
+        cache[key] = {
             "query": query,
-            "response": response[:5000],  # Limit size
+            "response": response[:5000],
             "timestamp": datetime.now().isoformat()
         }
         self.save()

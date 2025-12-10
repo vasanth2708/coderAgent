@@ -29,6 +29,13 @@ class AgentState(BaseModel):
     # Edit history for undo
     edit_history: List[Dict[str, Any]] = Field(default_factory=list)
     
+    # Approval and retry logic
+    awaiting_approval: bool = False
+    user_approved: bool = False
+    retry_count: int = 0
+    max_retries: int = 3
+    last_test_result: Optional[Dict[str, Any]] = None
+    
     class Config:
         arbitrary_types_allowed = True
 

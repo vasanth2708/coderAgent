@@ -1,16 +1,30 @@
 """
-Main Entry Point - Clean agent execution with LLM-as-a-judge evaluation
+Main Entry Point - Auto-apply edits with auto-fix loop
 """
 import asyncio
 import os
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from core.memory import Memory
 from core.state import AgentState
-from core.evaluator import get_evaluator
 from graph import build_graph
 from mcp.client import initialize_mcp
 from tools.mcp_adapter import mcp_adapter
+
+
+def _preserve_state(old_state: AgentState, result) -> AgentState:
+    """Preserve state across graph invocations"""
+    if isinstance(result, dict):
+        # Preserve memory
+        result['memory'] = old_state.memory
+        # Preserve edit history
+        if hasattr(old_state, 'edit_history'):
+            result['edit_history'] = old_state.edit_history
+        # Preserve retry count
+        if hasattr(old_state, 'retry_count'):
+            result['retry_count'] = old_state.retry_count
+        return AgentState(**result)
+    return result
 
 
 async def main():
@@ -29,115 +43,107 @@ async def main():
     
     # Initialize
     memory = Memory()
-    evaluator = get_evaluator()
     graph = build_graph()
     
     print("\nAI Coding Agent (DeepSeek-Powered)")
-    print("Commands: 'exit' to quit, 'approve' to apply edits")
+    print("Type 'exit' or 'quit' to stop")
     print("-" * 50)
+    
+    # Persistent state across requests
+    state = AgentState(messages=[], memory=memory)
     
     while True:
         # Get user input
-        user_input = input("\nYou: ").strip()
+        user_input = input("\nYou> ").strip()
         
         if not user_input:
             continue
         
         if user_input.lower() in ["exit", "quit", "q"]:
-            # Show evaluation statistics before exit
-            stats = evaluator.get_statistics()
-            if "average_scores" in stats:
-                print(f"\n📊 Session Statistics:")
-                print(f"   Total interactions: {stats['total_evaluations']}")
-                print(f"   Average quality: {stats['average_scores']['overall']}/5.0")
-                print(f"   Recent (last 10): {stats['last_10_avg']}/5.0")
-            
             print("\nGoodbye!")
             # Cleanup MCP servers
             if mcp_client:
                 mcp_client.stop_all()
             break
         
-        # Show stats command
-        if user_input.lower() == "stats":
-            stats = evaluator.get_statistics()
-            if "average_scores" in stats:
-                print(f"\n📊 Evaluation Statistics:")
-                print(f"   Total: {stats['total_evaluations']} evaluations")
-                print(f"   Accuracy: {stats['average_scores']['accuracy']}/5.0")
-                print(f"   Helpfulness: {stats['average_scores']['helpfulness']}/5.0")
-                print(f"   Completeness: {stats['average_scores']['completeness']}/5.0")
-                print(f"   Clarity: {stats['average_scores']['clarity']}/5.0")
-                print(f"   Overall: {stats['average_scores']['overall']}/5.0")
-            else:
-                print(stats.get("message", "No statistics available"))
+        # Check if we're handling approval
+        if state.awaiting_approval and user_input.lower() in ["approve", "yes", "y"]:
+            # User approved - continue graph execution with apply node
+            state.user_approved = True
+            state.awaiting_approval = False
+            state.done = False
+            
+            # Continue from apply node
+            from nodes.apply import apply_node
+            from nodes.test import test_node
+            
+            print("\n→ User approved. Applying edits...")
+            state = await apply_node(state)
+            
+            # Run tests
+            state = await test_node(state)
+            
+            # If tests failed and retry needed, continue the loop
+            while not state.done and state.retry_count <= state.max_retries:
+                print(f"\n[RETRY {state.retry_count}/{state.max_retries}] Re-running graph for fix...")
+                result = await graph.ainvoke(state)
+                state = _preserve_state(state, result)
+                
+                # Print response
+                if state.messages:
+                    last_msg = state.messages[-1]
+                    if hasattr(last_msg, 'content'):
+                        print(f"Agent> {last_msg.content}\n")
+                
+                # If awaiting approval again, break to get user input
+                if state.awaiting_approval:
+                    break
+                
+                # If edits were generated and approved (in retry), apply and test
+                if state.pending_edits and not state.awaiting_approval:
+                    state = await apply_node(state)
+                    state = await test_node(state)
+            
             continue
         
-        # Handle approval
-        if user_input.lower() == "approve":
-            # TODO: Apply pending edits
-            print("Edit application not yet implemented in this clean version")
+        elif state.awaiting_approval and user_input.lower() in ["reject", "no", "n"]:
+            # User rejected
+            print("\nEdits rejected. Clearing pending edits.")
+            state.pending_edits = {}
+            state.awaiting_approval = False
+            state.messages.append(AIMessage(content="Edits rejected by user"))
             continue
         
-        # Create state
-        state = AgentState(
-            messages=[HumanMessage(content=user_input)],
-            memory=memory
-        )
+        # Add user message to state
+        state.messages.append(HumanMessage(content=user_input))
+        state.done = False  # Reset done flag
+        state.retry_count = 0  # Reset retry count for new request
         
         # Run graph
         try:
             result = await graph.ainvoke(state)
             
-            # Handle result (may be dict or AgentState)
-            if isinstance(result, dict):
-                messages = result.get("messages", [])
-                error = result.get("error")
-            else:
-                messages = result.messages
-                error = result.error
+            # Preserve state across invocation
+            state = _preserve_state(state, result)
             
-            # Get response
-            response = None
-            intent = result.get("intent") if isinstance(result, dict) else getattr(result, "intent", None)
+            # Print agent response
+            if state.messages:
+                last_msg = state.messages[-1]
+                if hasattr(last_msg, 'content'):
+                    print(f"{last_msg.content}\n")
             
-            if messages:
-                last_msg = messages[-1]
-                response = last_msg.content
-                print(f"\nAgent: {response}")
+            if state.error:
+                print(f"Error> {state.error}\n")
             
-            if error:
-                response = f"Error: {error}"
-                print(f"\n{response}")
-            
-            # Evaluate response quality (LLM-as-a-judge)
-            if response and not error:
-                context = memory.get_context(
-                    result.get("target_files", []) if isinstance(result, dict) else getattr(result, "target_files", []),
-                    max_chars=1000  # Brief context for evaluation
-                )
-                
-                evaluation = await evaluator.evaluate_response(
-                    user_query=user_input,
-                    agent_response=response,
-                    context=context,
-                    intent=intent
-                )
-                
-                # Show evaluation if score is low or has important feedback
-                if evaluator.should_show_evaluation(evaluation):
-                    eval_display = evaluator.format_evaluation(evaluation)
-                    if eval_display:
-                        print(eval_display)
-            
-            # Store ALL conversations in memory (success or failure)
-            if response:
-                memory.add_conversation(user_input, response)
+            # Store conversation in memory
+            if state.messages:
+                last_msg = state.messages[-1]
+                if hasattr(last_msg, 'content'):
+                    memory.add_conversation(user_input, last_msg.content)
         
         except Exception as e:
             error_msg = str(e)
             print(f"\nError: {error_msg}")
-            # Store error conversations too
             memory.add_conversation(user_input, f"Error: {error_msg}")
             import traceback
             traceback.print_exc()

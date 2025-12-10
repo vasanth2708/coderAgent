@@ -13,10 +13,14 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent.parent / "sampleProject"
 def send_response(response):
     """Send JSON-RPC response"""
     print(json.dumps(response), flush=True)
+    sys.stderr.write(f"[EXEC-SERVER] Sent: {json.dumps(response)[:100]}\n")
+    sys.stderr.flush()
 
 
 def handle_initialize(request_id):
     """Handle initialize request"""
+    sys.stderr.write(f"[EXEC-SERVER] Initializing...\n")
+    sys.stderr.flush()
     send_response({
         "jsonrpc": "2.0",
         "id": request_id,
@@ -30,6 +34,8 @@ def handle_initialize(request_id):
 
 def handle_tools_list(request_id):
     """Handle tools/list request"""
+    sys.stderr.write(f"[EXEC-SERVER] Listing tools...\n")
+    sys.stderr.flush()
     send_response({
         "jsonrpc": "2.0",
         "id": request_id,
@@ -64,6 +70,9 @@ def handle_tools_call(request_id, params):
     """Handle tools/call request"""
     tool_name = params.get("name")
     arguments = params.get("arguments", {})
+    
+    sys.stderr.write(f"[EXEC-SERVER] Calling tool: {tool_name} with args: {arguments}\n")
+    sys.stderr.flush()
     
     if tool_name == "execute_command":
         command = arguments.get("command", [])
@@ -117,7 +126,12 @@ def handle_tools_call(request_id, params):
 
 def main():
     """Main server loop"""
+    sys.stderr.write(f"[EXEC-SERVER] Starting execution server for {PROJECT_DIR}\n")
+    sys.stderr.flush()
+    
     for line in sys.stdin:
+        sys.stderr.write(f"[EXEC-SERVER] Received: {line.strip()}\n")
+        sys.stderr.flush()
         try:
             request = json.loads(line)
             request_id = request.get("id")
