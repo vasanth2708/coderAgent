@@ -1,6 +1,4 @@
-"""
-Edit Node - Generate and apply code edits
-"""
+"""Edit Node"""
 import json
 import os
 from datetime import datetime

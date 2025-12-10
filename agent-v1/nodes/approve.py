@@ -1,6 +1,4 @@
-"""
-Approval Node - Handle user approval for edits
-"""
+"""Approval Node"""
 from langchain_core.messages import AIMessage
 from core.state import AgentState
 

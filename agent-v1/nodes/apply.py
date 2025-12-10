@@ -1,6 +1,4 @@
-"""
-Apply Node - Apply approved edits
-"""
+"""Apply Node"""
 from datetime import datetime
 from langchain_core.messages import AIMessage
 from core.state import AgentState

@@ -1,6 +1,4 @@
-"""
-Agent Graph - LangGraph implementation with approval, retry, and parallel evaluation
-"""
+"""Agent Graph"""
 from langgraph.graph import StateGraph, END
 
 from core.state import AgentState

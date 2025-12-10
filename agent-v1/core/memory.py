@@ -1,17 +1,4 @@
-"""
-Memory Management - Production-Grade
-
-Three-tier system:
-1. Working: Current task state (ephemeral)
-2. Session: Files + conversation (session-scoped, last 10)
-3. Persistent: Preferences + cache + useful conversations (disk-persisted, last 20)
-
-Production features:
-- Sensitive data filtering
-- Selective persistence (skip generic errors)
-- Size limits to prevent bloat
-- Privacy-aware storage
-"""
+"""Memory Management"""
 import hashlib
 import json
 from datetime import datetime

@@ -1,6 +1,4 @@
-"""
-Agent State - Clean state definition
-"""
+"""Agent State"""
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 from langchain_core.messages import BaseMessage

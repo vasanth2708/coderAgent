@@ -1,6 +1,4 @@
-"""
-Undo Node - Revert last edit
-"""
+"""Undo Node"""
 from langchain_core.messages import AIMessage
 from core.state import AgentState
 from tools.mcp_adapter import mcp_adapter

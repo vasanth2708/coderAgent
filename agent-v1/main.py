@@ -1,6 +1,4 @@
-"""
-Main Entry Point - Auto-apply edits with auto-fix loop
-"""
+"""Main Entry Point"""
 import asyncio
 import os
 from langchain_core.messages import AIMessage, HumanMessage
